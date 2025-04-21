@@ -1,0 +1,2 @@
+# Sentiment_analysis_using_FastAPI
+Analyzing sentiment using FastAPI
