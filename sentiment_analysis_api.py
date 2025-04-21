@@ -13,13 +13,11 @@ from nltk.corpus import stopwords
 import re
 import os
 
-# Download NLTK resources
 nltk.download('stopwords', quiet=True)
 nltk.download('punkt', quiet=True)
 
 app = FastAPI(title="Sentiment Analysis API")
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,32 +26,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define the request model
 class SentimentRequest(BaseModel):
     text: str
 
-# Text preprocessing function
 def preprocess_text(text):
-    # Convert to lowercase
     text = text.lower()
-    # Remove special characters and digits
     text = re.sub(r'[^a-zA-Z\s]', '', text)
-    # Tokenize
     tokens = nltk.word_tokenize(text)
-    # Remove stopwords
     stop_words = set(stopwords.words('english'))
     tokens = [word for word in tokens if word not in stop_words]
-    # Join tokens back to string
     return ' '.join(tokens)
 
-# Define paths for model and vectorizer
 MODEL_PATH = "sentiment_model.pkl"
 VECTORIZER_PATH = "tfidf_vectorizer.pkl"
 
-# Check if model exists, otherwise train a new one
 if not os.path.exists(MODEL_PATH) or not os.path.exists(VECTORIZER_PATH):
-    # Sample dataset - in a real scenario, you would load your actual dataset
-    # This is just a dummy dataset for demonstration
     data = {
         'text': [
             "I love this product, it's amazing!",
@@ -69,22 +56,17 @@ if not os.path.exists(MODEL_PATH) or not os.path.exists(VECTORIZER_PATH):
     }
     df = pd.DataFrame(data)
     
-    # Preprocess the text data
     df['processed_text'] = df['text'].apply(preprocess_text)
     
-    # Create TF-IDF features
     vectorizer = TfidfVectorizer(max_features=1000)
     X = vectorizer.fit_transform(df['processed_text'])
     y = df['sentiment']
     
-    # Split the data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    # Train a logistic regression model
     model = LogisticRegression(max_iter=1000)
     model.fit(X_train, y_train)
     
-    # Save the model and vectorizer
     with open(MODEL_PATH, 'wb') as f:
         pickle.dump(model, f)
     with open(VECTORIZER_PATH, 'wb') as f:
@@ -92,7 +74,6 @@ if not os.path.exists(MODEL_PATH) or not os.path.exists(VECTORIZER_PATH):
     
     print(f"Model accuracy: {model.score(X_test, y_test)}")
 else:
-    # Load the trained model and vectorizer
     with open(MODEL_PATH, 'rb') as f:
         model = pickle.load(f)
     with open(VECTORIZER_PATH, 'rb') as f:
@@ -106,16 +87,12 @@ async def root():
 @app.post("/analyze")
 async def analyze_sentiment(request: SentimentRequest):
     try:
-        # Preprocess the input text
         processed_text = preprocess_text(request.text)
         
-        # Transform the text using the TF-IDF vectorizer
         text_vector = vectorizer.transform([processed_text])
         
-        # Make prediction
         sentiment = model.predict(text_vector)[0]
         
-        # Get probability scores for each class
         probabilities = model.predict_proba(text_vector)[0]
         prob_dict = {class_name: float(prob) for class_name, prob in zip(model.classes_, probabilities)}
         
